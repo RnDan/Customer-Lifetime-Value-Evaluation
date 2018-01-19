@@ -7,16 +7,11 @@ library("reshape2")
 library("BTYDplus")
 library("sqldf")
 
-#Dividing dataset for Android and iOS devices. Model has been built separately for different OS types
-Game_Data_Set$event_date = as.Date(Game_Data_Set$event_time_utc)
-Game_Data_Android = filter(Game_Data_Set,client_os_type=="android")
-Game_Data_iOS = filter(Game_Data_Set,client_os_type=="ios")
+# NBD analysis requires customer ID, Transaction dates and Transaction sales value
 
-#--------------Android OS type------------------------------------------------------------------------
-
-Transaction_date_android = Game_Data_Android[,c(8,12,11)]
-names(Transaction_date_android) = c("cust","date","sales")
-Transaction_date = dc.MergeTransactionsOnSameDate(Transaction_date_android)
+NBD_Dataset = Dataset[,c(8,12,11)]
+names(NBD_Dataset) = c("cust","date","sales")
+Transaction_date = dc.MergeTransactionsOnSameDate(NBD_Dataset)
 
 #Divide the data into calibration and holdout period for building the model (Calibration) and testing (Holdout)
 
@@ -109,7 +104,7 @@ Customer_dataset = sqldf("select a.cust, a.x+1 as historic_transactions, a.t_x a
                          (select player_id, max(days_retained) as max_days_retained_cal,
                          avg(progression_level) as avg_progression_level_cal,
                          (max(num_sessions)-min(num_sessions))/count(num_purchases) as avg_session_bet_purchase
-                         from Game_Data_Android
+                         from Dataset
                          where strftime('%Y-%m-%d', event_date * 3600 * 24, 'unixepoch') <='2017-09-16' group by player_id) b on a.cust = b.player_id")
 
 Customer_dataset$activity_level[is.na(Customer_dataset$activity_level)] = 0
@@ -145,8 +140,8 @@ NBD_result[NBD_result$actual<14 & NBD_result$actual>=8,]$class="8 to 14"
 NBD_result[NBD_result$actual<8 & NBD_result$actual>=3,]$class="3 to 8"
 NBD_result[NBD_result$actual<3,]$class="<3"
 
-mean_NBDresult_android = aggregate(actual~class, NBD_result, FUN=mean)
-mean_NBDresult_android$mean_model1 = aggregate(predicted~class, NBD_result, FUN=mean)[,2]
+mean_NBDresult = aggregate(actual~class, NBD_result, FUN=mean)
+mean_NBDresult$mean_model1 = aggregate(predicted~class, NBD_result, FUN=mean)[,2]
 
 ## average transaction revenue - Actual and forecasted results
 
@@ -160,9 +155,9 @@ Avg_trans_rev_table[Avg_trans_rev_table$actual<50 & Avg_trans_rev_table$actual>=
 Avg_trans_rev_table[Avg_trans_rev_table$actual<20 & Avg_trans_rev_table$actual>=8,]$class="8 to 20"
 Avg_trans_rev_table[Avg_trans_rev_table$actual<8,]$class="<8"
 
-mean_avg_trans_android = aggregate(actual~class, Avg_trans_rev_table, FUN=mean)
-mean_avg_trans_android$mean_gamma = aggregate(predicted_gamma~class, Avg_trans_rev_table, FUN=mean)[,2]
-mean_avg_trans_android$mean_lm = aggregate(predicted_lm~class, Avg_trans_rev_table, FUN=mean)[,2]
+mean_avg_trans = aggregate(actual~class, Avg_trans_rev_table, FUN=mean)
+mean_avg_trans$mean_gamma = aggregate(predicted_gamma~class, Avg_trans_rev_table, FUN=mean)[,2]
+mean_avg_trans$mean_lm = aggregate(predicted_lm~class, Avg_trans_rev_table, FUN=mean)[,2]
 
 # LVT - Actual and forecasted result
 
@@ -172,7 +167,7 @@ CustomerMatrix[CustomerMatrix$sales_star<300 & CustomerMatrix$sales_star>=80,]$S
 CustomerMatrix[CustomerMatrix$sales_star<80 & CustomerMatrix$sales_star>=20,]$Segment="20 to 80"
 CustomerMatrix[CustomerMatrix$sales_star<20,]$Segment="<20"
 
-mean_table_android = aggregate(sales_star~Segment, CustomerMatrix, FUN=mean)
-mean_table_android$mean_gamma = aggregate(LTV_nbd_gamma_est~Segment, CustomerMatrix, FUN=mean)[,2]
-mean_table_android$mean_lm = aggregate(LTV_nbd_lm_est~Segment, CustomerMatrix, FUN=mean)[,2]
+mean_table = aggregate(sales_star~Segment, CustomerMatrix, FUN=mean)
+mean_table$mean_gamma = aggregate(LTV_nbd_gamma_est~Segment, CustomerMatrix, FUN=mean)[,2]
+mean_table$mean_lm = aggregate(LTV_nbd_lm_est~Segment, CustomerMatrix, FUN=mean)[,2]
 
